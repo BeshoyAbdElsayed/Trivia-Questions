@@ -84,6 +84,23 @@ class TriviaTestCase(unittest.TestCase):
 
         self.assertError(res, body, 422, 'unprocessable')
         
+    def test_delete_question_by_id_success(self):
+        res = self.client().delete('/questions/5')
+        body = res.get_json()
+
+        self.assertEquals(res.status_code, 200)
+        self.assertTrue(body['success'])
+        self.assertEquals(body['deleted'], 5)
+
+        question = Question.query.get(5)
+        
+        self.assertFalse(question)
+
+    def test_delete_question_by_id_fail(self):
+        res = self.client().delete('/qustions/1000')
+        body = res.get_json()
+
+        self.assertError(res, body, 404, 'resource not found')
         
 
 # Make the tests conveniently executable
