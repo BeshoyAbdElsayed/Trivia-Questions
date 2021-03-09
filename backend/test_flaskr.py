@@ -2,10 +2,15 @@ import os
 import unittest
 import json
 from flask_sqlalchemy import SQLAlchemy
+import os 
 
 from flaskr import create_app
 from models import setup_db, Question, Category
 
+# create a fresh testing database before starting tests
+os.system('dropdb trivia_test')
+os.system('createdb trivia_test')
+os.system('psql trivia_test < trivia.psql')
 
 class TriviaTestCase(unittest.TestCase):
     """This class represents the trivia test case"""
@@ -61,7 +66,7 @@ class TriviaTestCase(unittest.TestCase):
         res = self.client().get('/questions?page=1000')
         body = res.get_json()
 
-        self.assertError(res, body, 404, 'resource not found')
+        self.assertError(res, body, 404, 'page not found')
     
     def test_get_questions_by_category_success(self):
         res = self.client().get('/categories/1/questions')
@@ -77,30 +82,81 @@ class TriviaTestCase(unittest.TestCase):
         res = self.client().get('/categories/1/questions?page=1000')
         body = res.get_json()
 
-        self.assertError(res, body, 404, 'resource not found')
+        self.assertError(res, body, 404, 'page not found')
 
         res = self.client().get('/categories/1000/questions')
         body = res.get_json()
 
-        self.assertError(res, body, 422, 'unprocessable')
+        self.assertError(res, body, 422, 'category not found')
         
     def test_delete_question_by_id_success(self):
-        res = self.client().delete('/questions/5')
+        res = self.client().delete('/questions/1')
         body = res.get_json()
 
         self.assertEquals(res.status_code, 200)
         self.assertTrue(body['success'])
-        self.assertEquals(body['deleted'], 5)
 
-        question = Question.query.get(5)
+        question = Question.query.get(1)
         
         self.assertFalse(question)
 
     def test_delete_question_by_id_fail(self):
-        res = self.client().delete('/qustions/1000')
+        res = self.client().delete('/questions/1000')
         body = res.get_json()
 
-        self.assertError(res, body, 404, 'resource not found')
+        self.assertError(res, body, 404, 'question not found')
+
+    def test_create_question_success(self):
+        res = self.client().post('/questions', json={
+            "question": "test question",
+            "answer": "test answer",
+            "category": 1,
+            "difficulty": 3
+        })
+        body = res.get_json()
+
+        self.assertEqual(res.status_code, 200)
+        self.assertTrue(body['success'])
+
+    def test_create_question_fail(self):
+        # all fields must be present
+        res = self.client().post('/questions', json={
+            "question": "test question"
+        })
+        body = res.get_json()
+        self.assertError(res, body, 400, 'question, answer, difficulty and category must be provided')
+
+        # difficulty and category must be numbers
+        res = self.client().post('/questions', json={
+            "question": "test questions",
+            "answer": "test answer",
+            "category": "c",
+            "difficulty": "d"
+        })
+        body = res.get_json()
+        self.assertError(res, body, 400, 'difficulty and category must be numbers')
+
+        # difficulty must be between 1 and 5
+        res = self.client().post('/questions', json={
+            "question": "test questions",
+            "answer": "test answer",
+            "category": 1,
+            "difficulty": 10
+        })
+        body = res.get_json()
+        self.assertError(res, body, 400, 'difficulty must be between 1 and 5')
+        
+        # category must exit
+        res = self.client().post('/questions', json={
+            "question": "test questions",
+            "answer": "test answer",
+            "category": 1000,
+            "difficulty": 3
+        })
+        body = res.get_json()
+        self.assertError(res, body, 400, 'category doesn\'t exists')
+
+
         
 
 # Make the tests conveniently executable

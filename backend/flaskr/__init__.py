@@ -70,7 +70,7 @@ def create_app(test_config=None):
     categories = Category.query.all()
     current_questions = paginate_questions(request, all_questions)
     if len(current_questions) == 0:
-      abort(404)
+      abort(404, 'page not found')
     return jsonify({
       'success': True,
       'questions': current_questions,
@@ -90,12 +90,11 @@ def create_app(test_config=None):
   def delete_question_by_id(question_id):
     question = Question.query.get(question_id)
     if not question:
-      abort(404)
+      abort(404, 'question not found')
     
     question.delete()
     return jsonify({
       "success": True,
-      "deleted": question_id
     })
 
 
@@ -109,6 +108,43 @@ def create_app(test_config=None):
   the form will clear and the question will appear at the end of the last page
   of the questions list in the "List" tab.  
   '''
+  @app.route('/questions', methods=['POST'])
+  def create_new_question():
+    data = request.get_json()
+    # validate data exits
+    if 'question' not in data or 'answer' not in data or 'difficulty' not in data or 'category' not in data:
+      abort(400, 'question, answer, difficulty and category must be provided')
+
+    # validate difficulty and category is a number 
+    try:
+      difficulty = int(data['difficulty'])
+      category_id = int(data['category'])
+    except:
+      abort(400, 'difficulty and category must be numbers')
+
+    # validate difficulty from 1 to 5
+    if not (1 <= difficulty <= 5):
+      abort(400, 'difficulty must be between 1 and 5')
+
+    # validate category exists
+    category = Category.query.get(category_id)
+    if not category:
+      abort(400, 'category doesn\'t exists')
+    
+    # create question
+    question = Question(
+      question   = data['question'],
+      answer     = data['answer'],
+      category   = category_id,
+      difficulty = difficulty 
+    )
+    question.insert();
+
+    return jsonify({
+      "success": True,
+      "created": question.id
+    })
+
 
   '''
   @TODO: 
@@ -135,11 +171,11 @@ def create_app(test_config=None):
     categories = Category.query.all()
     formatted_categories = [category.format() for category in categories]
     if not questions:
-      abort(422)
+      abort(422, 'category not found')
 
     current_questions = paginate_questions(request, questions)
     if len(current_questions) == 0:
-      abort(404)
+      abort(404, 'page not found')
 
     return jsonify({
       'success': True,
@@ -172,7 +208,7 @@ def create_app(test_config=None):
     return jsonify({
       "success": False, 
       "error": 404,
-      "message": "resource not found"
+      "message": error.description
       }), 404
 
   @app.errorhandler(422)
@@ -180,7 +216,7 @@ def create_app(test_config=None):
     return jsonify({
       "success": False, 
       "error": 422,
-      "message": "unprocessable"
+      "message": error.description
       }), 422
 
   @app.errorhandler(400)
@@ -188,14 +224,14 @@ def create_app(test_config=None):
     return jsonify({
       "success": False, 
       "error": 400,
-      "message": "bad request"
+      "message": error.description 
       }), 400
   @app.errorhandler(405)
   def method_not_allowed(error):
     return jsonify({
       "success": False,
       "error": 405,
-      "message": "method not allowed"
+      "message": error.description 
     }), 405
   
   @app.errorhandler(500)
@@ -203,7 +239,7 @@ def create_app(test_config=None):
     return jsonify({
       "success": False,
       "error": 500,
-      "message": "internal server error"
+      "message": error.description 
     }), 500
 
   return app
