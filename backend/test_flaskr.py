@@ -96,8 +96,8 @@ class TriviaTestCase(unittest.TestCase):
         self.assertEquals(res.status_code, 200)
         self.assertTrue(body['success'])
 
+        # insure question is deleted for database
         question = Question.query.get(1)
-        
         self.assertFalse(question)
 
     def test_delete_question_by_id_fail(self):
@@ -117,6 +117,10 @@ class TriviaTestCase(unittest.TestCase):
 
         self.assertEqual(res.status_code, 200)
         self.assertTrue(body['success'])
+
+        # insure question is created in database 
+        question = Question.query.get(24)
+        self.assertEqual(question.question, 'test question')
 
     def test_create_question_fail(self):
         # all fields must be present
