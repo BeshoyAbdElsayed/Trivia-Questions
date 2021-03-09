@@ -156,8 +156,62 @@ class TriviaTestCase(unittest.TestCase):
         body = res.get_json()
         self.assertError(res, body, 400, 'category doesn\'t exists')
 
+    def test_search_questions_success(self):
+        res = self.client().post('/questions/searches', json={
+            "searchTerm": "movie"
+        })
+        body = res.get_json()
+        self.assertEqual(res.status_code, 200)
+        self.assertTrue(body['success'])
+        self.assertTrue(body['questions'])
+        self.assertEqual(body['questions'][0]['id'], 3)
 
-        
+    def test_search_questions_fail(self):
+        res = self.client().post('/questions/searches', json={})
+        body = res.get_json()
+        self.assertError(res, body, 400, 'request doesn\'t have searchTerm')
+
+    def test_get_quizzes_success(self):
+        res = self.client().post('/quizzes', json={
+            "previous_questions": [12, 13],
+            "quiz_category": {
+                "id": 2,
+                "type": "Art"
+            }
+        })
+        body = res.get_json()
+
+        self.assertEqual(res.status_code, 200)
+        self.assertTrue(body['success'])
+        self.assertTrue(body['question'])
+        self.assertEqual(body['question']['category'], 2)
+    
+        # if quiz_category id equals 0 this means all categories
+        res = self.client().post('/quizzes', json={
+            "previous_questions": [1, 2],
+            "quiz_category": {
+                "id": 0,
+                "type": "all"
+            }
+        })
+        body = res.get_json()
+        self.assertEqual(res.status_code, 200)
+
+    def test_get_quizzes_fail(self):
+        res = self.client().post('/quizzes', json={})
+        body = res.get_json()
+        self.assertError(res, body, 400, 'previous_questions and quiz_category must be provided')
+
+        # quiz category id must be valid 
+        res = self.client().post('/quizzes', json={
+            "previous_questions": [],
+            "quiz_category": {
+                "id": 222,
+                "type": "Art"
+            }
+        })
+        body = res.get_json()
+        self.assertError(res, body, 400, 'category doesn\'t exist')
 
 # Make the tests conveniently executable
 if __name__ == "__main__":

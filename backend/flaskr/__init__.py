@@ -2,7 +2,8 @@ import os
 from flask import Flask, request, abort, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
-import random
+from random import random
+from math import floor
 
 from models import setup_db, Question, Category
 
@@ -48,8 +49,8 @@ def create_app(test_config=None):
     categories = Category.query.all()
     formatted_categories = [category.format() for category in categories]
     return jsonify({
-      'success': True,
-      'categories': formatted_categories
+      "success": True,
+      "categories": formatted_categories
     })
 
   '''
@@ -72,11 +73,11 @@ def create_app(test_config=None):
     if len(current_questions) == 0:
       abort(404, 'page not found')
     return jsonify({
-      'success': True,
-      'questions': current_questions,
-      'total_questions': len(all_questions),
-      'categories': [category.format() for category in categories],
-      'current_category': 1
+      "success": True,
+      "questions": current_questions,
+      "total_questions": len(all_questions),
+      "categories": [category.format() for category in categories],
+      "current_category": 0
     })
 
   '''
@@ -156,6 +157,20 @@ def create_app(test_config=None):
   only question that include that string within their question. 
   Try using the word "title" to start. 
   '''
+  @app.route('/questions/searches', methods=['POST'])
+  def search_questions_by_name():
+    data = request.get_json()
+    # validate there is a search term
+    if 'searchTerm' not in data:
+      abort(400, 'request doesn\'t have searchTerm')
+    
+    search_term = data['searchTerm']
+    questions = Question.query.filter(Question.question.ilike(f'%{search_term}%')).all()
+    formatted_quesions = [question.format() for question in questions]
+    return jsonify({
+      "success": True,
+      "questions": formatted_quesions
+    })
 
   '''
   @TODO: 
@@ -178,11 +193,11 @@ def create_app(test_config=None):
       abort(404, 'page not found')
 
     return jsonify({
-      'success': True,
-      'questions': current_questions,
-      'total_questions': len(questions),
-      'categories': formatted_categories,
-      'current_category': category_id
+      "success": True,
+      "questions": current_questions,
+      "total_questions": len(questions),
+      "categories": formatted_categories,
+      "current_category": category_id
     })
     
 
@@ -197,6 +212,45 @@ def create_app(test_config=None):
   one question at a time is displayed, the user is allowed to answer
   and shown whether they were correct or not. 
   '''
+  @app.route('/quizzes', methods=['POST'])
+  def get_quiz_question():
+    data = request.get_json()
+    # make sure data is correct
+    if 'previous_questions' not in data or 'quiz_category' not in data:
+      abort(400, 'previous_questions and quiz_category must be provided')
+    previous_questions = data['previous_questions']
+    quiz_category_id = int(data['quiz_category']['id'])
+    # validate category exists
+    # category id = 0 means all categories
+    if quiz_category_id != 0:
+      category = Category.query.get(quiz_category_id)
+      if not category:
+        abort(400, 'category doesn\'t exist')
+    
+    # get all questions
+    if quiz_category_id == 0:
+      all_questions = Question.query.all()
+    else:
+      all_questions = Question.query.filter(Question.category==quiz_category_id)
+    
+    # get questions pool from all questions execluding prvious questions
+    questions_pool = []
+    for question in all_questions:
+      if question.id not in previous_questions:
+        questions_pool.append(question)
+
+    # if questions pool is empty retrun empty question dict
+    if len(questions_pool) == 0:
+      random_question = {}
+    else:
+      # get a random question from the questions pool 
+      random_index = floor(random() * len(questions_pool))
+      random_question = questions_pool[random_index].format()
+
+    return jsonify({
+      "success": True,
+      "question": random_question
+    })
 
   '''
   @TODO: 
